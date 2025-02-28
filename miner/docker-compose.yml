@@ -1,0 +1,18 @@
+version: '3.8'
+name: bitcoin_miner
+networks:
+  bitcoin_network:
+    external: true
+
+services:
+  bitcoin_miner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bitcoin_miner
+    env_file:
+      - .env
+    environment:
+      - SERVER_URL=ws://bitcoin_pool:8765
+    networks:
+      - bitcoin_network

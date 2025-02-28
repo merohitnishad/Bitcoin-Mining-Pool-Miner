@@ -1,0 +1,65 @@
+version: '3.8'
+name: bitcoin_miner_and_pool
+networks:
+  bitcoin_network:
+    driver: bridge
+
+services:
+  bitcoin_node:
+    image: ruimarinho/bitcoin-core:latest
+    container_name: bitcoin_node
+    command:
+      - -regtest=1
+      - -server=1
+      - -rpcallowip=0.0.0.0/0
+      - -rpcbind=0.0.0.0
+      - -rpcuser=rpc_username
+      - -rpcpassword=rpc_password
+      - -rpcport=18443
+    ports:
+      - "18443:18443"
+    volumes:
+      - bitcoin_data:/home/bitcoin/.bitcoin
+    networks:
+      - bitcoin_network
+    healthcheck:
+      test: ["CMD", "bitcoin-cli", "-regtest", "-rpcuser=rpc_username", "-rpcpassword=rpc_password", "getblockchaininfo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  bitcoin_pool:
+    build:
+      context: ./pool/.
+      dockerfile: Dockerfile
+    container_name: bitcoin_pool
+    ports:
+      - "8765:8765"
+
+    environment:
+      - RPC_URL=http://bitcoin_node:18443
+      - RPC_USER=rpc_username
+      - RPC_PASS=rpc_password
+      - MINER_PUBLIC_KEY=bcrt1qaj88xpedvteetelgnqy3h49mtl48p6l3n4g2t7
+    depends_on:
+      bitcoin_node:
+        condition: service_healthy
+    networks:
+      - bitcoin_network
+
+  bitcoin_miner:
+    build:
+      context: ./miner/.
+      dockerfile: Dockerfile
+    container_name: bitcoin_miner
+
+    environment:
+      - SERVER_URL=ws://bitcoin_pool:8765
+    networks:
+      - bitcoin_network
+    depends_on:
+      bitcoin_node:
+        condition: service_healthy
+
+volumes:
+  bitcoin_data:
